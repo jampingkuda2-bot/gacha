@@ -3,6 +3,7 @@ import { getConfig } from "@/lib/blob";
 import { getPlaysData, savePlaysData, PlayRecord } from "@/lib/plays";
 import { parseDevice } from "@/lib/device";
 import { CARD_COUNT, pickWeightedIndex } from "@/lib/types";
+import { sendPlayNotification } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,15 @@ export async function POST(req: NextRequest) {
   entry.history.push(record);
   plays.byDevice[key] = entry;
   await savePlaysData(plays);
+
+  await sendPlayNotification({
+    type: "flip",
+    result: won.label,
+    isZonk: won.isZonk,
+    device,
+    time,
+    key,
+  });
 
   const remaining = config.maxFlipsPerDevice - entry.flips;
 

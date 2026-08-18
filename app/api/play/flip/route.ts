@@ -109,10 +109,31 @@ export async function POST(req: NextRequest) {
 
   const remaining = config.maxFlipsPerDevice - entry.flips;
 
+  // The other cards get flipped open too just for show. Now that this
+  // player's draw is already locked in, revealing the rest of the prize
+  // pool's real images is safe — send label/image/isZonk only (never the
+  // weights, which stay server-side) so the client can decorate the other
+  // cards with genuine artwork instead of a generic placeholder.
+  const revealPool = shuffle(config.cardPrizes).map((p) => ({
+    image: p.image,
+    label: p.label,
+    isZonk: p.isZonk,
+  }));
+
   return NextResponse.json({
     image: won.image,
     label: won.label,
     isZonk: won.isZonk,
     remaining,
+    revealPool,
   });
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }

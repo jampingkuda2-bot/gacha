@@ -35,7 +35,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      <div className="relative z-10 flex justify-center px-6 pb-24 pt-12">
+      <div className="relative z-10 flex justify-center px-4 pb-24 pt-12">
         {publicConfig.activeMode === "spin" ? (
           <SpinWheel prizes={publicConfig.prizes} />
         ) : (

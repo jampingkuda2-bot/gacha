@@ -34,10 +34,13 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-ink to-deep px-6">
-      <form onSubmit={handleSubmit} className="glass w-full max-w-sm rounded-3xl p-8 text-center">
-        <h1 className="font-display text-2xl font-bold text-white">Panel Kontrol Gacha</h1>
-        <p className="mt-1 text-sm text-white/70">Masukkan kata sandi.</p>
+    <div className="flex min-h-screen items-center justify-center bg-ink px-6">
+      <form onSubmit={handleSubmit} className="ios-sheet w-full max-w-[300px] animate-sheetIn p-6 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue/15 text-2xl">
+          🔒
+        </div>
+        <h1 className="font-display mt-3 text-[17px] font-semibold text-white">Panel Kontrol Gacha</h1>
+        <p className="mt-1 text-[13px] text-seclabel">Masukkan kata sandi untuk masuk.</p>
 
         <input
           type="password"
@@ -45,18 +48,20 @@ export default function AdminLoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Kata sandi"
           autoFocus
-          className="mt-6 w-full rounded-xl border border-white/30 bg-white/10 px-4 py-3 text-white placeholder-white/50 outline-none focus:border-gold"
+          className="mt-5 w-full rounded-ios border border-white/10 bg-mid px-4 py-2.5 text-center text-[15px] text-white placeholder-seclabel outline-none focus:border-blue"
         />
 
-        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        {error && <p className="mt-3 text-[13px] text-rose">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="mt-6 w-full rounded-xl bg-gold py-3 font-bold text-ink transition hover:brightness-105 disabled:opacity-60"
-        >
-          {loading ? "Memeriksa..." : "Masuk"}
-        </button>
+        <div className="mt-5 -mx-6 -mb-6 flex border-t border-separator">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 text-[17px] font-semibold text-blue transition active:bg-white/10 disabled:opacity-50"
+          >
+            {loading ? "Memeriksa..." : "Masuk"}
+          </button>
+        </div>
       </form>
     </div>
   );

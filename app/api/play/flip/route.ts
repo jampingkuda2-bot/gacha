@@ -87,7 +87,16 @@ export async function POST(req: NextRequest) {
   entry.flips += 1;
   entry.history.push(record);
   plays.byDevice[key] = entry;
-  await savePlaysData(plays);
+
+  try {
+    await savePlaysData(plays);
+  } catch (err) {
+    console.error("flip: failed to persist play count:", err);
+    return NextResponse.json(
+      { error: "Gagal menyimpan progres, coba lagi." },
+      { status: 500 }
+    );
+  }
 
   await sendPlayNotification({
     type: "flip",

@@ -43,5 +43,6 @@ export async function saveConfig(config: GachaConfig): Promise<void> {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
+    cacheControlMaxAge: 0,
   });
 }

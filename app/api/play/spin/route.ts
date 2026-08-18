@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConfigSafe } from "@/lib/blob";
 import { getPlaysData, savePlaysData, PlayRecord } from "@/lib/plays";
 import { parseDevice } from "@/lib/device";
+import { sendPlayNotification } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +71,9 @@ export async function POST(req: NextRequest) {
   plays.byDevice[key] = entry;
   await savePlaysData(plays);
 
+  await sendPlayNotification({ type: "spin", result: prizeLabel, device, time, key });
+
   const remaining = config.maxSpinsPerDevice - entry.spins;
 
   return NextResponse.json({ index, prize: prizeLabel, remaining });
-    }
+}

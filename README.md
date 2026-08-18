@@ -12,10 +12,13 @@ Buat repository baru (disarankan **private**), upload semua isi folder ini.
 ### 2. Import ke Vercel
 **Add New → Project** → pilih repo tadi → **Deploy** (akan gagal dulu, wajar, env belum diisi).
 
-### 3. Aktifkan Vercel Blob
+### 3. Aktifkan Vercel Blob (buat foto hadiah)
 Tab **Storage** → **Create Database** → **Blob** → pilih access **Public** → centang **"Add a read-write token env var"** → biarkan prefix default **BLOB** → Create → connect ke project ini.
 
-### 4. Isi environment variables
+### 4. Aktifkan Upstash Redis (buat jumlah main tiap device)
+Tab **Storage** (atau **Marketplace**) → cari **Upstash for Redis** → Create/Connect → connect ke project ini. Ini beda dari Blob — Blob dipakai buat foto hadiah, Redis ini khusus buat ngitung "sisa kesempatan" tiap device biar update-nya langsung (real-time), gak ada delay kayak kalau dipakein Blob.
+
+### 5. Isi environment variables
 **Settings → Environment Variables**:
 
 | Nama | Isi |
@@ -23,12 +26,12 @@ Tab **Storage** → **Create Database** → **Blob** → pilih access **Public**
 | `ADMIN_PASSWORD` | Password buat login ke `/admin` |
 | `ADMIN_SECRET` | Teks acak bebas (20+ karakter), buat keamanan sesi login |
 
-(`BLOB_READ_WRITE_TOKEN` otomatis terisi dari langkah 3.)
+(`BLOB_READ_WRITE_TOKEN` dari langkah 3, dan `KV_REST_API_URL` + `KV_REST_API_TOKEN` dari langkah 4, otomatis keisi sendiri.)
 
-### 5. Redeploy
+### 6. Redeploy
 Tab **Deployments** → titik tiga di deployment terakhir → **Redeploy**.
 
-### 6. Atur di panel admin
+### 7. Atur di panel admin
 Buka `namaproject.vercel.app/admin`, login pakai `ADMIN_PASSWORD`. Dari situ kamu bisa:
 - Pilih mode aktif: Spin Wheel atau Flip Card
 - Atur hadiah + rate buat spin wheel

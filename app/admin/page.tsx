@@ -18,6 +18,12 @@ async function uploadImage(file: File): Promise<string> {
   return blob.url;
 }
 
+// Rounds a weight to one decimal place — enough precision to dial a rate
+// down to 0.1% once the pool is normalized to a 100-point total.
+function round1(n: number) {
+  return Math.round(n * 10) / 10;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [config, setConfig] = useState<GachaConfig | null>(null);
@@ -87,6 +93,18 @@ export default function AdminDashboard() {
   function removePrize(index: number) {
     setConfig((c) => (c ? { ...c, prizes: c.prizes.filter((_, i) => i !== index) } : c));
   }
+  // Rescales every prize's weight so the pool sums to exactly 100 — once
+  // that's true, each "rate" number *is* its drop-rate percentage, so
+  // typing 0.1 gives an exact 0.1% chance.
+  function normalizePrizesToHundred() {
+    setConfig((c) => {
+      if (!c) return c;
+      const total = c.prizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
+      if (total <= 0) return c;
+      const prizes = c.prizes.map((p) => ({ ...p, weight: round1((Math.max(0, p.weight) / total) * 100) }));
+      return { ...c, prizes };
+    });
+  }
 
   function updateCardPrize(index: number, patch: Partial<GachaConfig["cardPrizes"][number]>) {
     setConfig((c) => {
@@ -105,6 +123,15 @@ export default function AdminDashboard() {
   }
   function removeCardPrize(index: number) {
     setConfig((c) => (c ? { ...c, cardPrizes: c.cardPrizes.filter((_, i) => i !== index) } : c));
+  }
+  function normalizeCardPrizesToHundred() {
+    setConfig((c) => {
+      if (!c) return c;
+      const total = c.cardPrizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
+      if (total <= 0) return c;
+      const cardPrizes = c.cardPrizes.map((p) => ({ ...p, weight: round1((Math.max(0, p.weight) / total) * 100) }));
+      return { ...c, cardPrizes };
+    });
   }
 
   async function handleCardImageUpload(index: number, file: File) {
@@ -150,7 +177,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-ink text-white/70">
+      <div className="flex min-h-screen items-center justify-center bg-ink text-[15px] text-seclabel">
         Memuat panel...
       </div>
     );
@@ -159,11 +186,12 @@ export default function AdminDashboard() {
   if (loadError || !config) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ink px-6 text-center text-white">
-        <p className="font-display text-lg font-bold">Gagal memuat data</p>
-        <p className="max-w-md break-words rounded-xl bg-white/10 px-4 py-3 font-mono text-xs text-white/80">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-rose/15 text-2xl">⚠️</div>
+        <p className="font-display text-[17px] font-semibold">Gagal memuat data</p>
+        <p className="max-w-md break-words rounded-ios border border-separator bg-deep px-4 py-3 font-mono text-[12px] text-seclabel">
           {loadError || "Data tidak diketahui."}
         </p>
-        <button onClick={loadConfig} className="mt-2 rounded-full bg-gold px-6 py-2.5 text-sm font-bold text-ink">
+        <button onClick={loadConfig} className="ios-btn bg-blue px-6 py-2.5 text-[15px] text-white">
           Coba lagi
         </button>
       </div>
@@ -171,63 +199,61 @@ export default function AdminDashboard() {
   }
 
   const zonkCount = config.cardPrizes.filter((p) => p.isZonk).length;
+  const prizeTotal = config.prizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
+  const cardTotal = config.cardPrizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
+  const prizeIsHundred = Math.abs(prizeTotal - 100) < 0.05;
+  const cardIsHundred = Math.abs(cardTotal - 100) < 0.05;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-ink to-deep pb-32 text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-ink/90 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 className="font-display text-xl font-bold">Panel Kontrol Gacha</h1>
-          <div className="flex gap-2">
-            <a href="/" target="_blank" className="rounded-full border border-white/20 px-4 py-2 text-xs hover:bg-white/10">
+    <div className="min-h-screen bg-ink pb-32 text-white">
+      {/* iOS nav bar */}
+      <header className="safe-top glass sticky top-0 z-20 border-b border-white/10">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-3">
+          <h1 className="font-display text-[20px] font-bold">Panel Kontrol</h1>
+          <div className="flex items-center gap-4">
+            <a href="/" target="_blank" className="text-[15px] font-medium text-blue">
               Lihat situs
             </a>
-            <button onClick={handleLogout} className="rounded-full border border-white/20 px-4 py-2 text-xs hover:bg-white/10">
+            <button onClick={handleLogout} className="text-[15px] font-medium text-rose">
               Keluar
             </button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto mt-8 flex max-w-3xl flex-col gap-8 px-6">
-        {/* Basic info + mode */}
-        <section className="glass rounded-2xl p-6">
-          <h2 className="font-display text-lg font-bold">Info dasar</h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
-              Judul
+      <div className="mx-auto mt-7 flex max-w-2xl flex-col gap-7 px-5">
+        {/* Basic info */}
+        <section>
+          <p className="ios-section-label mb-2">Info dasar</p>
+          <div className="ios-card">
+            <label className="ios-row">
+              <span className="w-24 shrink-0 text-[15px] text-seclabel">Judul</span>
               <input
                 value={config.title}
                 onChange={(e) => update("title", e.target.value)}
-                className="rounded-lg border border-white/25 bg-white/10 px-3 py-2 outline-none focus:border-gold"
+                className="min-w-0 flex-1 bg-transparent text-right text-[15px] text-white outline-none"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              Subjudul
+            <label className="ios-row">
+              <span className="w-24 shrink-0 text-[15px] text-seclabel">Subjudul</span>
               <input
                 value={config.subtitle}
                 onChange={(e) => update("subtitle", e.target.value)}
-                className="rounded-lg border border-white/25 bg-white/10 px-3 py-2 outline-none focus:border-gold"
+                className="min-w-0 flex-1 bg-transparent text-right text-[15px] text-white outline-none"
               />
             </label>
           </div>
+        </section>
 
-          <div className="mt-5 border-t border-white/10 pt-4">
-            <p className="text-sm font-semibold">Mode yang aktif di situs</p>
-            <div className="mt-2 flex gap-3">
-              <button
-                onClick={() => update("activeMode", "spin")}
-                className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold ${
-                  config.activeMode === "spin" ? "border-gold bg-gold/20 text-gold" : "border-white/20 text-white/70"
-                }`}
-              >
+        {/* Mode toggle */}
+        <section>
+          <p className="ios-section-label mb-2">Mode yang aktif di situs</p>
+          <div className="ios-card p-2">
+            <div className="ios-segment">
+              <button data-active={config.activeMode === "spin"} onClick={() => update("activeMode", "spin")}>
                 🎡 Spin Wheel
               </button>
-              <button
-                onClick={() => update("activeMode", "flipcard")}
-                className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold ${
-                  config.activeMode === "flipcard" ? "border-gold bg-gold/20 text-gold" : "border-white/20 text-white/70"
-                }`}
-              >
+              <button data-active={config.activeMode === "flipcard"} onClick={() => update("activeMode", "flipcard")}>
                 🃏 Flip Card
               </button>
             </div>
@@ -235,90 +261,125 @@ export default function AdminDashboard() {
         </section>
 
         {/* Spin prizes */}
-        <section className="glass rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Hadiah Spin Wheel</h2>
-            <button onClick={addPrize} className="rounded-full bg-gold px-4 py-1.5 text-xs font-bold text-ink">
+        <section>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="ios-section-label !px-0">Hadiah Spin Wheel</p>
+            <button onClick={addPrize} className="text-[13px] font-semibold text-blue">
               + Tambah
             </button>
           </div>
-          <p className="mt-1 text-xs text-white/60">
-            "Rate" itu bobot peluang — rate sama, peluang rata; makin gede, makin sering keluar.
+          <p className="mb-2 text-[12px] leading-relaxed text-seclabel">
+            Rate = bobot peluang, bukan langsung persen. Tekan{" "}
+            <span className="font-semibold text-white">“Samakan ke 100%”</span> supaya tiap rate langsung jadi
+            persen aslinya — dari situ kamu bisa ngetik rate presisi seperti <span className="text-gold">0.1</span>{" "}
+            buat drop rate <span className="text-gold">0,1%</span>.
           </p>
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="ios-card">
             {config.prizes.map((prize, i) => {
-              const total = config.prizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
-              const pct = total > 0 ? Math.round((Math.max(0, prize.weight) / total) * 100) : 0;
+              const pct = prizeTotal > 0 ? (Math.max(0, prize.weight) / prizeTotal) * 100 : 0;
               return (
-                <div key={i} className="flex items-center gap-2">
+                <div key={i} className="ios-row">
                   <input
                     value={prize.label}
                     onChange={(e) => updatePrize(i, { label: e.target.value })}
-                    className="w-full rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-sm outline-none focus:border-gold"
+                    placeholder="Nama hadiah"
+                    className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-tertlabel"
                   />
-                  <input
-                    type="number"
-                    min={0}
-                    value={prize.weight}
-                    onChange={(e) => updatePrize(i, { weight: Math.max(0, Number(e.target.value) || 0) })}
-                    className="w-16 shrink-0 rounded-lg border border-white/25 bg-white/10 px-2 py-2 text-center text-sm outline-none focus:border-gold"
-                  />
-                  <span className="w-10 shrink-0 text-right text-[11px] text-white/50">{pct}%</span>
-                  <button onClick={() => removePrize(i)} className="shrink-0 text-xs text-red-300 hover:text-red-200">
+                  <div className="ios-stepper">
+                    <button type="button" onClick={() => updatePrize(i, { weight: Math.max(0, round1(prize.weight - 0.1)) })}>
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.1"
+                      min={0}
+                      value={prize.weight}
+                      onChange={(e) => updatePrize(i, { weight: Math.max(0, Number(e.target.value) || 0) })}
+                      className="w-14 bg-transparent text-center text-[14px] text-white outline-none [appearance:textfield]"
+                    />
+                    <button type="button" onClick={() => updatePrize(i, { weight: round1(prize.weight + 0.1) })}>
+                      +
+                    </button>
+                  </div>
+                  <span className="w-14 shrink-0 text-right text-[12px] text-seclabel">{pct.toFixed(1)}%</span>
+                  <button onClick={() => removePrize(i)} className="shrink-0 text-[13px] font-medium text-rose">
                     Hapus
                   </button>
                 </div>
               );
             })}
           </div>
-          <label className="mt-4 flex items-center justify-between gap-3 text-sm">
-            Batas maksimal putaran per perangkat
-            <input
-              type="number"
-              min={1}
-              value={config.maxSpinsPerDevice}
-              onChange={(e) => update("maxSpinsPerDevice", Math.max(1, Number(e.target.value) || 1))}
-              className="w-20 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-center text-sm outline-none focus:border-gold"
-            />
-          </label>
+          <div className="mt-2 flex items-center justify-between px-1">
+            <span className={`text-[12px] ${prizeIsHundred ? "text-green" : "text-seclabel"}`}>
+              Total rate: {prizeTotal.toFixed(1)}%{prizeIsHundred ? " ✓" : ""}
+            </span>
+            <button onClick={normalizePrizesToHundred} className="text-[12px] font-semibold text-blue">
+              Samakan ke 100%
+            </button>
+          </div>
+
+          <div className="ios-card mt-3">
+            <div className="ios-row">
+              <span className="flex-1 text-[15px] text-white">Batas maksimal putaran per perangkat</span>
+              <div className="ios-stepper">
+                <button
+                  type="button"
+                  onClick={() => update("maxSpinsPerDevice", Math.max(1, config.maxSpinsPerDevice - 1))}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  value={config.maxSpinsPerDevice}
+                  onChange={(e) => update("maxSpinsPerDevice", Math.max(1, Number(e.target.value) || 1))}
+                  className="w-12 bg-transparent text-center text-[14px] text-white outline-none [appearance:textfield]"
+                />
+                <button type="button" onClick={() => update("maxSpinsPerDevice", config.maxSpinsPerDevice + 1)}>
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Flip card pool */}
-        <section className="glass rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Isi Flip Card (RNG)</h2>
-            <button onClick={addCardPrize} className="rounded-full bg-gold px-4 py-1.5 text-xs font-bold text-ink">
+        <section>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="ios-section-label !px-0">Isi Flip Card (RNG)</p>
+            <button onClick={addCardPrize} className="text-[13px] font-semibold text-blue">
               + Tambah
             </button>
           </div>
-          <p className="mt-1 text-xs text-white/60">
-            Ini kumpulan kemungkinan hasil pas kartu dibuka — hasilnya diacak beneran (RNG) tiap kartu
-            dibuka, bukan posisi tetap. Tandai "Zonk" buat yang gak dapat apa-apa. Sekarang ada{" "}
+          <p className="mb-2 text-[12px] leading-relaxed text-seclabel">
+            Hasilnya diacak beneran (RNG) tiap kartu dibuka, bukan posisi tetap. Tandai{" "}
+            <span className="font-semibold text-white">Zonk</span> buat yang gak dapat apa-apa. Sekarang ada{" "}
             <span className="text-gold">{zonkCount} entri Zonk</span>.
           </p>
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="ios-card">
             {config.cardPrizes.map((cp, i) => {
-              const total = config.cardPrizes.reduce((s, p) => s + Math.max(0, p.weight), 0);
-              const pct = total > 0 ? Math.round((Math.max(0, cp.weight) / total) * 100) : 0;
+              const pct = cardTotal > 0 ? (Math.max(0, cp.weight) / cardTotal) * 100 : 0;
               return (
-                <div key={i} className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/5 p-3">
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-white/20 bg-white/5">
+                <div key={i} className="ios-row items-start py-3">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-ios border border-white/10 bg-mid">
                     {cp.image ? (
                       <Image src={cp.image} alt="" fill className="object-cover" />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[9px] text-white/40">
+                      <div className="flex h-full w-full items-center justify-center text-[9px] text-tertlabel">
                         {cp.isZonk ? "Zonk" : "?"}
                       </div>
                     )}
                   </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
                     <input
                       value={cp.label}
                       onChange={(e) => updateCardPrize(i, { label: e.target.value })}
-                      className="w-full rounded-lg border border-white/25 bg-white/10 px-2 py-1.5 text-sm outline-none focus:border-gold"
+                      placeholder="Nama hadiah"
+                      className="w-full bg-transparent text-[15px] text-white outline-none placeholder:text-tertlabel"
                     />
-                    <div className="flex items-center gap-2 text-xs">
-                      <label className="cursor-pointer rounded-full border border-white/25 px-2 py-1 hover:bg-white/10">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <label className="cursor-pointer rounded-full border border-white/15 px-2.5 py-1 text-[12px] text-seclabel active:bg-white/10">
                         {busySlot === `card-${i}` ? "..." : "Foto"}
                         <input
                           type="file"
@@ -330,70 +391,107 @@ export default function AdminDashboard() {
                           }}
                         />
                       </label>
-                      <label className="flex items-center gap-1">
+                      <label className="flex items-center gap-1.5 text-[12px] text-seclabel">
                         <input
                           type="checkbox"
                           checked={cp.isZonk}
                           onChange={(e) => updateCardPrize(i, { isZonk: e.target.checked })}
+                          className="ios-switch"
+                          style={{ transform: "scale(0.7)", transformOrigin: "left center" }}
                         />
                         Zonk
                       </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={cp.weight}
-                        onChange={(e) => updateCardPrize(i, { weight: Math.max(0, Number(e.target.value) || 0) })}
-                        className="w-14 rounded-lg border border-white/25 bg-white/10 px-2 py-1 text-center outline-none focus:border-gold"
-                      />
-                      <span className="text-white/50">{pct}%</span>
+                      <div className="ios-stepper">
+                        <button
+                          type="button"
+                          onClick={() => updateCardPrize(i, { weight: Math.max(0, round1(cp.weight - 0.1)) })}
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.1"
+                          min={0}
+                          value={cp.weight}
+                          onChange={(e) => updateCardPrize(i, { weight: Math.max(0, Number(e.target.value) || 0) })}
+                          className="w-12 bg-transparent text-center text-[13px] text-white outline-none [appearance:textfield]"
+                        />
+                        <button type="button" onClick={() => updateCardPrize(i, { weight: round1(cp.weight + 0.1) })}>
+                          +
+                        </button>
+                      </div>
+                      <span className="text-[12px] text-seclabel">{pct.toFixed(1)}%</span>
                     </div>
                   </div>
-                  <button onClick={() => removeCardPrize(i)} className="shrink-0 text-xs text-red-300 hover:text-red-200">
+                  <button onClick={() => removeCardPrize(i)} className="shrink-0 self-center text-[13px] font-medium text-rose">
                     Hapus
                   </button>
                 </div>
               );
             })}
           </div>
-          <label className="mt-4 flex items-center justify-between gap-3 text-sm">
-            Batas maksimal buka kartu per perangkat
-            <input
-              type="number"
-              min={1}
-              value={config.maxFlipsPerDevice}
-              onChange={(e) => update("maxFlipsPerDevice", Math.max(1, Number(e.target.value) || 1))}
-              className="w-20 rounded-lg border border-white/25 bg-white/10 px-3 py-2 text-center text-sm outline-none focus:border-gold"
-            />
-          </label>
+          <div className="mt-2 flex items-center justify-between px-1">
+            <span className={`text-[12px] ${cardIsHundred ? "text-green" : "text-seclabel"}`}>
+              Total rate: {cardTotal.toFixed(1)}%{cardIsHundred ? " ✓" : ""}
+            </span>
+            <button onClick={normalizeCardPrizesToHundred} className="text-[12px] font-semibold text-blue">
+              Samakan ke 100%
+            </button>
+          </div>
+
+          <div className="ios-card mt-3">
+            <div className="ios-row">
+              <span className="flex-1 text-[15px] text-white">Batas maksimal buka kartu per perangkat</span>
+              <div className="ios-stepper">
+                <button
+                  type="button"
+                  onClick={() => update("maxFlipsPerDevice", Math.max(1, config.maxFlipsPerDevice - 1))}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  value={config.maxFlipsPerDevice}
+                  onChange={(e) => update("maxFlipsPerDevice", Math.max(1, Number(e.target.value) || 1))}
+                  className="w-12 bg-transparent text-center text-[14px] text-white outline-none [appearance:textfield]"
+                />
+                <button type="button" onClick={() => update("maxFlipsPerDevice", config.maxFlipsPerDevice + 1)}>
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Player data */}
-        <section className="glass rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Kelola data pemain</h2>
+        <section>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="ios-section-label !px-0">Kelola data pemain</p>
             <button
               onClick={() => resetPlays()}
               disabled={resettingKey !== null}
-              className="rounded-full border border-red-300/50 px-4 py-1.5 text-xs font-bold text-red-300 hover:bg-red-300/10 disabled:opacity-50"
+              className="text-[13px] font-semibold text-rose disabled:opacity-50"
             >
               {resettingKey === "__all__" ? "Mereset..." : "Reset semua"}
             </button>
           </div>
-          <div className="mt-4 flex flex-col gap-2">
-            {playsLoading && <p className="text-sm text-white/50">Memuat...</p>}
+          <div className="ios-card">
+            {playsLoading && <p className="ios-row text-[14px] text-seclabel">Memuat...</p>}
             {!playsLoading && playsData && Object.keys(playsData.byDevice).length === 0 && (
-              <p className="text-sm text-white/50">Belum ada yang pernah main.</p>
+              <p className="ios-row text-[14px] text-seclabel">Belum ada yang pernah main.</p>
             )}
             {!playsLoading &&
               playsData &&
               Object.entries(playsData.byDevice).map(([key, entry]) => {
                 const last = entry.history[entry.history.length - 1];
                 return (
-                  <div key={key} className="flex items-center justify-between gap-3 rounded-xl border border-white/15 bg-white/5 p-3">
-                    <div className="min-w-0">
-                      <p className="text-xs text-white/80">{last?.device || "Perangkat tidak dikenal"}</p>
-                      <p className="mt-0.5 truncate font-mono text-[10px] text-white/40">{key}</p>
-                      <p className="mt-0.5 text-xs text-white/50">
+                  <div key={key} className="ios-row">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] text-white">{last?.device || "Perangkat tidak dikenal"}</p>
+                      <p className="mt-0.5 truncate font-mono text-[10px] text-tertlabel">{key}</p>
+                      <p className="mt-0.5 text-[12px] text-seclabel">
                         {entry.spins} spin, {entry.flips} flip
                         {last ? ` · terakhir: ${last.result} (${last.time})` : ""}
                       </p>
@@ -401,7 +499,7 @@ export default function AdminDashboard() {
                     <button
                       onClick={() => resetPlays(key)}
                       disabled={resettingKey !== null}
-                      className="shrink-0 rounded-full border border-white/25 px-3 py-1.5 text-xs hover:bg-white/10 disabled:opacity-50"
+                      className="shrink-0 text-[13px] font-medium text-blue disabled:opacity-50"
                     >
                       {resettingKey === key ? "..." : "Reset"}
                     </button>
@@ -412,17 +510,24 @@ export default function AdminDashboard() {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-ink/95 px-6 py-4 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <div className="text-xs text-white/60">
-            {error ? <span className="text-red-300">{error}</span> : savedAt ? `Tersimpan pukul ${savedAt}` : "Perubahan belum disimpan"}
+      {/* Sticky save toolbar */}
+      <div className="safe-bottom glass fixed inset-x-0 bottom-0 z-20 border-t border-white/10">
+        <div className="mx-auto flex max-w-2xl items-center justify-between px-5 py-3">
+          <div className="text-[13px]">
+            {error ? (
+              <span className="text-rose">{error}</span>
+            ) : savedAt ? (
+              <span className="text-green">Tersimpan pukul {savedAt}</span>
+            ) : (
+              <span className="text-seclabel">Perubahan belum disimpan</span>
+            )}
           </div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-full bg-gold px-8 py-2.5 font-bold text-ink disabled:opacity-60"
+            className="ios-btn bg-blue px-8 py-2.5 text-[15px] text-white disabled:opacity-50"
           >
-            {saving ? "Menyimpan..." : "Simpan perubahan"}
+            {saving ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
       </div>

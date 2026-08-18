@@ -14,6 +14,10 @@ export default function FlipCards() {
   const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limitMsg, setLimitMsg] = useState<string | null>(null);
+  // Once the picked card's result is shown, the rest of the deck flips over
+  // too — purely cosmetic, just so the whole board feels "revealed" instead
+  // of leaving 7 untouched cards sitting there.
+  const [revealRest, setRevealRest] = useState(false);
   const deviceIdRef = useRef("");
   const fingerprintRef = useRef("");
 
@@ -59,6 +63,9 @@ export default function FlipCards() {
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       setFlippedIndex(index);
       setResult({ image: data.image, label: data.label, isZonk: data.isZonk });
+      // Give the player a beat to register their own card's result, then
+      // flip the rest of the board over for show.
+      setTimeout(() => setRevealRest(true), 900);
     } catch {
       setLimitMsg("Koneksinya lagi bermasalah, coba lagi.");
     } finally {
@@ -69,31 +76,34 @@ export default function FlipCards() {
   function reset() {
     setFlippedIndex(null);
     setResult(null);
+    setRevealRest(false);
   }
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="grid grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-4 gap-4 sm:gap-5">
         {Array.from({ length: CARD_COUNT }).map((_, i) => {
-          const isFlipped = flippedIndex === i;
+          const isPicked = flippedIndex === i;
           const isLoading = loadingIndex === i;
-          const isLocked = flippedIndex !== null && flippedIndex !== i;
+          const isOtherRevealed = revealRest && flippedIndex !== null && flippedIndex !== i;
+          const isShowingFront = isPicked || isOtherRevealed;
+          const isLocked = flippedIndex !== null && !isPicked && !isOtherRevealed;
 
           return (
             <button
               key={i}
               onClick={() => handleFlip(i)}
               disabled={flippedIndex !== null || loadingIndex !== null}
-              className="relative aspect-[3/4] w-16 sm:w-20 [perspective:800px]"
+              className="relative aspect-[3/4] w-20 sm:w-24 [perspective:800px]"
             >
               <motion.div
-                animate={{ rotateY: isFlipped ? 180 : 0 }}
-                transition={{ duration: 0.6, ease: "easeInOut" }}
+                animate={{ rotateY: isShowingFront ? 180 : 0 }}
+                transition={{ duration: 0.6, ease: "easeInOut", delay: isOtherRevealed ? i * 0.06 : 0 }}
                 className="relative h-full w-full [transform-style:preserve-3d]"
               >
                 {/* card back */}
                 <div
-                  className={`absolute inset-0 flex items-center justify-center rounded-ios border border-white/10 bg-deep text-2xl text-gold shadow-lg transition-opacity [backface-visibility:hidden] ${
+                  className={`absolute inset-0 flex items-center justify-center rounded-ios border border-white/10 bg-deep text-3xl text-gold shadow-lg transition-opacity [backface-visibility:hidden] ${
                     isLocked ? "opacity-30" : "opacity-100"
                   } ${isLoading ? "animate-pulse" : ""}`}
                 >
@@ -105,19 +115,19 @@ export default function FlipCards() {
                   className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden rounded-ios border border-gold/70 bg-ink [backface-visibility:hidden]"
                   style={{ transform: "rotateY(180deg)" }}
                 >
-                  {isFlipped && result && (
-                    <>
-                      {result.image ? (
-                        <div className="relative h-full w-full">
-                          <Image src={result.image} alt={result.label} fill className="object-cover" />
-                        </div>
-                      ) : (
-                        <span className="px-1 text-center text-[10px] font-semibold text-white">
-                          {result.isZonk ? "Zonk" : result.label}
-                        </span>
-                      )}
-                    </>
-                  )}
+                  {isPicked && result ? (
+                    result.image ? (
+                      <div className="relative h-full w-full">
+                        <Image src={result.image} alt={result.label} fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <span className="px-1 text-center text-[11px] font-semibold text-white">
+                        {result.isZonk ? "Zonk" : result.label}
+                      </span>
+                    )
+                  ) : isOtherRevealed ? (
+                    <span className="text-xl text-white/20">✦</span>
+                  ) : null}
                 </div>
               </motion.div>
             </button>

@@ -10,7 +10,7 @@ export default async function HomePage() {
   const publicConfig = toPublicConfig(config);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-gradient-to-b from-ink via-deep to-mid px-6 py-16">
+    <main className="relative min-h-screen overflow-hidden bg-ink">
       <div className="pointer-events-none absolute inset-0">
         {Array.from({ length: 40 }).map((_, i) => (
           <div
@@ -25,14 +25,17 @@ export default async function HomePage() {
         ))}
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-3 text-center">
-        <h1 className="font-display text-3xl font-extrabold text-white sm:text-4xl">
-          {publicConfig.title}
-        </h1>
-        <p className="text-sm text-white/70">{publicConfig.subtitle}</p>
+      {/* iOS large-title nav bar */}
+      <div className="safe-top glass sticky top-0 z-20 border-b border-white/10">
+        <div className="px-5 pb-3 pt-4">
+          <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight text-white">
+            {publicConfig.title}
+          </h1>
+          <p className="mt-0.5 text-[13px] text-seclabel">{publicConfig.subtitle}</p>
+        </div>
       </div>
 
-      <div className="relative z-10 mt-12 flex justify-center">
+      <div className="relative z-10 flex justify-center px-6 pb-24 pt-12">
         {publicConfig.activeMode === "spin" ? (
           <SpinWheel prizes={publicConfig.prizes} />
         ) : (

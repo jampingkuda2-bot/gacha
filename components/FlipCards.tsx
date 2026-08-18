@@ -15,9 +15,10 @@ export default function FlipCards() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [limitMsg, setLimitMsg] = useState<string | null>(null);
   // Once the picked card's result is shown, the rest of the deck flips over
-  // too — purely cosmetic, just so the whole board feels "revealed" instead
-  // of leaving 7 untouched cards sitting there.
+  // too — real prize artwork for flavor, but NOT another result. The actual
+  // outcome is a single draw tied to `result`, not to any specific card.
   const [revealRest, setRevealRest] = useState(false);
+  const [revealPool, setRevealPool] = useState<FlipResult[]>([]);
   const deviceIdRef = useRef("");
   const fingerprintRef = useRef("");
 
@@ -63,6 +64,7 @@ export default function FlipCards() {
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       setFlippedIndex(index);
       setResult({ image: data.image, label: data.label, isZonk: data.isZonk });
+      setRevealPool(Array.isArray(data.revealPool) ? data.revealPool : []);
       // Give the player a beat to register their own card's result, then
       // flip the rest of the board over for show.
       setTimeout(() => setRevealRest(true), 900);
@@ -77,11 +79,12 @@ export default function FlipCards() {
     setFlippedIndex(null);
     setResult(null);
     setRevealRest(false);
+    setRevealPool([]);
   }
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="grid grid-cols-4 gap-4 sm:gap-5">
+    <div className="flex w-full max-w-[420px] flex-col items-center gap-6">
+      <div className="grid w-full grid-cols-4 gap-2.5 sm:gap-3.5">
         {Array.from({ length: CARD_COUNT }).map((_, i) => {
           const isPicked = flippedIndex === i;
           const isLoading = loadingIndex === i;
@@ -94,7 +97,7 @@ export default function FlipCards() {
               key={i}
               onClick={() => handleFlip(i)}
               disabled={flippedIndex !== null || loadingIndex !== null}
-              className="relative aspect-[3/4] w-20 sm:w-24 [perspective:800px]"
+              className="relative aspect-[3/4] w-full [perspective:800px]"
             >
               <motion.div
                 animate={{ rotateY: isShowingFront ? 180 : 0 }}
@@ -103,7 +106,7 @@ export default function FlipCards() {
               >
                 {/* card back */}
                 <div
-                  className={`absolute inset-0 flex items-center justify-center rounded-ios border border-white/10 bg-deep text-3xl text-gold shadow-lg transition-opacity [backface-visibility:hidden] ${
+                  className={`absolute inset-0 flex items-center justify-center rounded-ios border border-white/10 bg-deep text-4xl text-gold shadow-lg transition-opacity [backface-visibility:hidden] ${
                     isLocked ? "opacity-30" : "opacity-100"
                   } ${isLoading ? "animate-pulse" : ""}`}
                 >
@@ -126,7 +129,21 @@ export default function FlipCards() {
                       </span>
                     )
                   ) : isOtherRevealed ? (
-                    <span className="text-xl text-white/20">✦</span>
+                    (() => {
+                      // Not another result — just real prize artwork from
+                      // the pool, cycled across the leftover positions, so
+                      // the reveal looks alive instead of a blank icon.
+                      const item = revealPool.length > 0 ? revealPool[i % revealPool.length] : null;
+                      return item?.image ? (
+                        <div className="relative h-full w-full opacity-80">
+                          <Image src={item.image} alt={item.label} fill className="object-cover" />
+                        </div>
+                      ) : (
+                        <span className="px-1 text-center text-[10px] font-semibold text-white/70">
+                          {item ? (item.isZonk ? "Zonk" : item.label) : ""}
+                        </span>
+                      );
+                    })()
                   ) : null}
                 </div>
               </motion.div>

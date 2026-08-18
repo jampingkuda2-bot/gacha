@@ -20,11 +20,11 @@ export async function getPlaysData(): Promise<PlaysData> {
     const { blobs } = await list({ prefix: PLAYS_PATH, limit: 1 });
     const match = blobs.find((b) => b.pathname === PLAYS_PATH);
     if (!match) return EMPTY;
-    // Cache-bust: the blob URL is stable (addRandomSuffix: false), so a CDN
-    // or fetch cache can otherwise keep serving an old snapshot after we've
-    // overwritten it, which is what made "remaining" look stuck.
+    // Cache-bust: even with cacheControlMaxAge:0 on write, belt-and-braces
+    // against any intermediary cache still holding an old snapshot of this
+    // stable URL (addRandomSuffix: false means the URL never changes).
     const bustUrl = `${match.url}?t=${Date.now()}`;
-    const res = await fetch(bustUrl, { cache: "no-store" });
+    const res = await fetch(bustUrl, { cache: "no-store", headers: { "cache-control": "no-cache" } });
     if (!res.ok) return EMPTY;
     const raw = (await res.json()) as Partial<PlaysData> | null;
     const byDevice = raw && typeof raw.byDevice === "object" && raw.byDevice !== null ? raw.byDevice : {};
@@ -42,12 +42,18 @@ export async function savePlaysData(data: PlaysData): Promise<void> {
   // first and then wrote a new one; if that delete lagged behind (Vercel
   // Blob's list/delete is eventually consistent), a fast second request
   // could read a stale "not found" list, or the delete could race the
-  // write, dropping the increment on the floor — the flip count never
-  // actually got persisted even though the API response reported a lower
-  // "remaining" number. A single put() removes that race entirely.
+  // write, dropping the increment on the floor.
+  //
+  // cacheControlMaxAge: 0 is the real fix for "remaining doesn't go down".
+  // @vercel/blob defaults to caching a blob at Vercel's edge for up to 5
+  // minutes after every write. Play counts change on nearly every request,
+  // so that default cache was serving back a stale (pre-increment) copy of
+  // plays.json well within a normal play session — the count looked frozen
+  // even though the write itself succeeded.
   await put(PLAYS_PATH, JSON.stringify(data, null, 2), {
     access: "public",
     contentType: "application/json",
     addRandomSuffix: false,
+    cacheControlMaxAge: 0,
   });
 }
